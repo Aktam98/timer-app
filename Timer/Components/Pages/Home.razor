@@ -1,0 +1,66 @@
+﻿@page "/"
+@using Common.DTO
+@using Microsoft.AspNetCore.SignalR.Client
+@rendermode InteractiveServer
+<PageTitle>Timer</PageTitle>
+<Timer></Timer>
+<div class="row mt-4">
+    <table class="table table-sm table-bordered table-striped">
+        <thead class="thead-dark">
+            <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Started time</th>
+                <th scope="col">Ended time</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Timers)
+            {
+                <tr>
+                    <td>Timer @item.Id</td>
+                    <td>@item.StartTime</td>
+                    <td>@item.EndTime</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code{
+    private HubConnection? _hubConnection;
+    private List<TimerDTO> Timers = new();
+    protected override async Task OnInitializedAsync()
+    {
+         await GetAllTimer();
+        if (_hubConnection == null || _hubConnection.State == HubConnectionState.Disconnected)
+        {
+            await ConnectHub();
+        }
+        await base.OnInitializedAsync();
+    }
+
+    private async Task ConnectHub()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl("http://localhost:5102/timer")
+            .Build();
+        _hubConnection.On<TimerDTO>("SendNewTimer", (timer) =>
+        {
+            Timers.Add(timer);
+            InvokeAsync(StateHasChanged);
+        });
+
+
+        if (_hubConnection.State == HubConnectionState.Disconnected)
+        {
+            await _hubConnection.StartAsync();
+        }
+    }
+
+    private async Task GetAllTimer()
+    {
+        var httpClient = new HttpClient();
+        var result = await httpClient.GetFromJsonAsync<List<TimerDTO>>("http://localhost:5102/timer/getall");
+        Timers = result ?? new();
+    }
+}

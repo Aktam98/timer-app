@@ -1,0 +1,245 @@
+﻿@page "/timer"
+@using Common.DTO
+@using global::Timer.Services
+@rendermode InteractiveServer
+@inject TimerPublisher _timerPublisher
+@if (!IsStartedTimer)
+{
+    <div class="row">
+        <div id="time_wrapper">
+            <div id="time_input">
+                <label for="hours">
+                    <input type="number" @bind-value="h" id="hours">
+                    <span class="label lbl-hrs">hours</span>
+                </label>
+                <span>:</span>
+                <label for="minutes">
+                    <input type="number" id="minutes" @bind-value="m">
+                    <span class="label lbl-min">minutes</span>
+                </label>
+                <span>:</span>
+                <label for="seconds">
+                    <input type="number" id="seconds" @bind-value="s">
+                    <span class="label lbl-sec">seconds</span>
+                </label>
+                <div>
+                    <button class="start-btn" @onclick="StartTimer">Start</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="timer-container">
+        <div class="timer-info bg-danger">
+            <h2 class="timer-label mt-1">Left time</h2>
+            <label class="timer-label time-size">@($"{LeftTime.Hours.ToString().PadLeft(2, '0')}:{LeftTime.Minutes.ToString().PadLeft(2, '0')}:{LeftTime.Seconds.ToString().PadLeft(2, '0')}")</label>
+            <div class="timer-action">
+                <button class="timer-btn" @onclick="StartNew">Start new</button>
+                @if(LeftTime>new TimeSpan())
+                {
+                    @if (IsStoppingTimer)
+                    {
+                        <button class="timer-btn" @onclick="RusemeTimer">Ruseme</button>
+                    }
+                    else
+                    {
+                        <button class="timer-btn" @onclick="StopTimer">Stop</button>
+                    }
+                }                
+            </div>
+        </div>
+        <div class="timer-info bg-info">
+            <h2 class="timer-label mt-1">Passed time</h2>
+            <label class="timer-label time-size">@($"{PassedTime.Hours.ToString().PadLeft(2, '0')}:{PassedTime.Minutes.ToString().PadLeft(2, '0')}:{PassedTime.Seconds.ToString().PadLeft(2, '0')}")</label>
+            <div class="timer-action">
+                <p>Started time:@StartedTime.ToString("h:mm:ss")</p>
+                <p>Ended time:@EndedTime.ToString("h:mm:ss")</p>
+            </div>
+        </div>
+    </div>
+}
+
+
+
+
+
+<style>
+    body {
+        font-family: sans-serif;
+    }
+
+    #time_wrapper {
+        width: fit-content;
+        margin: 0 auto;
+        /*  position: relative; */
+        top: 100px;
+        margin-top: 20px;
+        transform: scale(1.5);
+    }
+
+    .timer-container {
+        width: 100%;
+        display: flex;
+    }
+
+    #time_input {
+        border: 2px solid var(--inactive);
+        width: fit-content;
+        display: flex;
+        align-items: center;
+    }
+
+    .start-btn {
+        border: none !important;
+        background-color: limegreen;
+        border-radius: 5px;
+    }
+
+    .timer-info {
+        width: 48%;
+        height: 210px;
+        border-radius: 10px;
+        margin: 1%;
+    }
+
+    .timer-label {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+    }
+
+    .time-size {
+        font-size: 70px;
+    }
+
+    .timer-action {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .timer-btn {
+        background-color: #04AA6D; /* Green */
+        border: none;
+        color: white;
+        padding: 9px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        width: 100px;
+        border-radius: 10px;
+        margin: 5px;
+    }
+
+    input {
+        width: 60px;
+        height: 60px;
+        border: none;
+        box-sizing: border-box;
+        padding: auto 15px;
+        text-align: center;
+    }
+
+    label {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        position: relative;
+    }
+
+    p {
+        color: white;
+        margin: 5px;
+    }
+
+    .label {
+        font-size: 0.55rem;
+        position: absolute;
+        top: 4.5px;
+    }
+
+        .label.lbl-hrs {
+            left: 20px;
+        }
+
+        .label.lbl-min {
+            left: 14px;
+        }
+
+        .label.lbl-sec {
+            left: 13px;
+        }
+
+    #time_input,
+    input {
+        border-radius: 8px;
+        font-size: 1.5rem;
+    }
+</style>
+@code {
+    private bool IsStartedTimer = false;
+    private bool IsStoppingTimer = false;
+    private int h = 0;
+    private int m = 0;
+    private int s = 0;
+    private TimeSpan LeftTime;
+    private TimeSpan PassedTime;
+    private DateTime StartedTime;
+    private DateTime EndedTime;
+    private void StartTimer()
+    {
+        LeftTime = new TimeSpan(h, m, s);
+        PassedTime = new();
+        StartedTime = DateTime.Now;
+        EndedTime = DateTime.Now.Add(LeftTime);
+        TimerRing();
+        IsStartedTimer = true;
+    }
+
+    private async Task TimerRing()
+    {
+        while ((LeftTime > new TimeSpan()) && !IsStoppingTimer)
+        {
+            await Task.Delay(1000);
+            LeftTime = LeftTime.Subtract(new TimeSpan(0, 0, 1));
+            PassedTime = PassedTime.Add(new TimeSpan(0, 0, 1));
+            StateHasChanged();
+        }
+
+        if (!IsStoppingTimer)
+        {
+            SaveTimer();
+        }      
+    }
+
+    private void SaveTimer()
+    {
+        _timerPublisher.SendMessage(new TimerDTO
+            {
+                StartTime = StartedTime.ToString("h:mm:ss"),
+                EndTime = EndedTime.ToString("h:mm:ss")
+            });
+    }
+
+    private void StopTimer()
+    {
+        IsStoppingTimer = true;
+    }
+
+    private void RusemeTimer()
+    {
+        IsStoppingTimer = false;
+        TimerRing();
+    }
+
+    private void StartNew()
+    {
+        IsStartedTimer = false;
+        h = 0;m = 0;s = 0;
+        IsStoppingTimer = false;
+    }
+}
