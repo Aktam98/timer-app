@@ -1,5 +1,4 @@
-﻿@page "/timer"
-@using Common.DTO
+﻿@using Common.DTO
 @using global::Timer.Services
 @rendermode InteractiveServer
 @inject TimerPublisher _timerPublisher
@@ -9,23 +8,29 @@
         <div id="time_wrapper">
             <div id="time_input">
                 <label for="hours">
-                    <input type="number" @bind-value="h" id="hours">
+                    <input type="number" @bind-value="h" id="hours" min="0">
                     <span class="label lbl-hrs">hours</span>
                 </label>
                 <span>:</span>
                 <label for="minutes">
-                    <input type="number" id="minutes" @bind-value="m">
+                    <input type="number" id="minutes" @bind-value="m" min="0" max="59">
                     <span class="label lbl-min">minutes</span>
                 </label>
                 <span>:</span>
                 <label for="seconds">
-                    <input type="number" id="seconds" @bind-value="s">
+                    <input type="number" id="seconds" @bind-value="s" min="0" max="59">
                     <span class="label lbl-sec">seconds</span>
                 </label>
                 <div>
                     <button class="start-btn" @onclick="StartTimer">Start</button>
                 </div>
             </div>
+            @if (StartingError)
+            {
+                <div>
+                    <h6 style="color:red">The wrong time was selected</h6>
+                </div>
+            }            
         </div>
     </div>
 }
@@ -183,6 +188,7 @@ else
 @code {
     private bool IsStartedTimer = false;
     private bool IsStoppingTimer = false;
+    private bool StartingError = false;
     private int h = 0;
     private int m = 0;
     private int s = 0;
@@ -192,12 +198,20 @@ else
     private DateTime EndedTime;
     private void StartTimer()
     {
-        LeftTime = new TimeSpan(h, m, s);
-        PassedTime = new();
-        StartedTime = DateTime.Now;
-        EndedTime = DateTime.Now.Add(LeftTime);
-        TimerRing();
-        IsStartedTimer = true;
+        StartingError = false;
+        if (h <0||(m<0||m>59)||(s<0||s>59))
+        {
+            StartingError = true;
+        }
+        else
+        {
+            LeftTime = new TimeSpan(h, m, s);
+            PassedTime = new();
+            StartedTime = DateTime.Now;
+            EndedTime = DateTime.Now.Add(LeftTime);
+            TimerRing();
+            IsStartedTimer = true;
+        }       
     }
 
     private async Task TimerRing()
